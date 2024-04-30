@@ -1,0 +1,145 @@
+---
+title: "R Notebook"
+output: html_notebook
+author: "Duha Alkurdi"
+---
+ 
+```{r}
+# Step-by-step solution for the first question of the mid-term exam
+
+# Loading necessary libraries
+library(fpp2)   # This library is loaded so we can work on the specific dataset
+library(forecast)   # So, we can perform ARIMA and other forecasting functions 
+library(tseries)    # For stationary data testing
+library(urca)
+```
+```{r}
+# First step: Obviously reading the data from the provided data set
+# data_set <- data("dataset_name", package = "fpp2")
+
+# Plotting the data set
+# Several functions can be used to plot the data set, one of these functions is: ggtdisplay(dataset_name)
+ggtsdisplay(austa)
+```
+```{r}
+# Based on the plotting, we decide if the data needs transformation or not.
+# The data needs transformation if there is evidence of increasing or decreasing variability
+
+# In case, transformation is needed, we need to define the value of lambada, to do so we use the function "BoxCox.lambda(dataset_name)", this function will return the appropriate value of lambda in case transformation was needed.
+
+# lambda_value <- BoxCox.lambda(austa)
+# print(lambda_value)
+
+# After we have computed the value of lambda, we can apply the transformation on the specific data set
+# To apply the transformation to the data set we can utilize the following command, BoxCox(dataset_name,lambda value)
+# transformed_data <- BoxCox(austa, lambda_value)
+
+#PART (A): For the provided dataset, there is no evidence of increasing variability. The data points seem to follow a general upward trend without significant fluctuations or changes in the spread of data points. 
+# Thus, we can conclude that transformation is not needed
+```
+
+```{r}
+# The next step will be testing for stationarity, as ARIMA models can only be applied to stationary data
+# Testing for stationary data can be done using the "unit root test" which can be performed using the kpss function in R
+summary(ur.kpss(austa))
+# Based on the results of the test, if the critical values are larger than the test statistic, we do NOT reject the null hypothesis and data is indeed stationary and no differencing is needed
+# PART (B): Since the test statistic is larger than the critical values, then the data is not stationary and needs differencing
+
+# NOTE: We have to determine if the data is seasonal first, because in such cases, it is preferable to apply the seasonality differencing before ordinal differencing
+# To know the number of seasonal differencing required to be performed on the data set we use nsdiffs(dataset_name)
+# There is no obvious indication of seasonality for the provided data set
+
+# Assuming that the results of the unit root test came out to reveal that differencing is needed, and that there is no evidence of seasonality, in such case ordinary differencing should be performed 
+# To assess the number of ordinal differencing needed we use the function "ndiffs(transformed_data) 
+num_diff <- ndiffs(austa)
+print(num_diff)
+
+# Based on the number return from the previous line of code, we apply ordinal differencing on the data set/transformed data set (depending weather or not the data was transformed)
+diff_austa <- diff(austa, ,differences= num_diff)
+
+
+# To make sure that data is stationary at this stage, unit root test can be performed again on the differenced data set
+summary(ur.kpss(diff_austa))
+# After performing the one order of differencing, the critical values are larger than the test statistic, so the data is stationary now.
+```
+```{r}
+# Now, a plotting function can be used to help us identify the initial ARIMA model
+tsdisplay(diff_austa)
+# Based on the results of the previous line of code, the initial ARIMA model can be identified.
+# Look at the ACF and PCF plots, identify which of these plots show exponential decay, save that plot and look at the other.
+# Based on "the other plot" you can count the number of significant legs that appear and "try not to include a large number of legs, so you are not over fitting the data"
+# Remember ARIMA(p,d,q). The number of significant legs will be p in case looking at the PCF plot and will stand for q in case obtained from the ACF plot.
+# d is the number of ordinal differencing performed to reach the stationary data
+# It is either p is having a value or q, the other should be zero
+
+# Now, ARIMA (0,1,0) can be defined 
+# PART (C): Based on the ACF, and the PCF, and as non of the spikes is significant in neither of the plots so we can start with ARIMA (0,1,0) # (1) order of differencing has been performed.
+# Suggested ARIMA models 
+# ARIMA (0,1,0)
+# ARIMA (1,1,0)
+# ARIMA (0,1,1)
+
+```
+```{r}
+# PART (C): Continued
+# To answer the question of which of the initial ARIMA models is the best, start with the initial ARIMA and test plus/minus 1 for p or q 
+
+fitted_model_1 <- Arima(austa, order=c(0,1,0))
+summary(fitted_model_1)
+
+fitted_model_2 <- Arima(austa, order=c(1,1,0))
+summary(fitted_model_2)
+
+fitted_model_3 <- Arima(austa, order=c(0,1,1))
+summary(fitted_model_3)
+
+# You will be having more than one ARIMA model at this stage, to determine which of these models is the best look for the lowest AICc value 
+# PART (C): Based on the results of the AICc, the best performing model appear to be the third one which is ARIMA (1,1,0)
+```
+```{r}
+
+# NOTE: Auto ARIMA, can also be applied
+auto.arima(austa)
+
+```
+```{r}
+# Next step, is to estimate the parameters of your best fitting model, to do so, we apply the ARIMA model with the (p, d, q) values that gave the best performing model
+
+fitted_ARIMA <- Arima(austa, order=c(1,1,0))
+summary(fitted_ARIMA)
+
+# Here, we are ready to answer the question if the fitted model is good enough.
+# To do so, we should assess if the residuals resemble white noise, thus we use the "Ljung–Box test"
+Box.test(residuals(fitted_ARIMA), type= "Ljung-Box")
+# Based on the results of the test, if the p-value is large, we accept the null hypothesis and the residuals are white noise
+
+checkresiduals(fitted_ARIMA)
+
+# PART (D): There is only one parameter that is 0.6177, that is representing the phi_1
+# As for the question, regarding the residuals, the results of the "Ljung-Box" came with p-value that is  0.5224, thus we do not have enough evidence to reject the null hypothesis and the residuals are white noise
+```
+
+```{r}
+# PART (E)
+# Writing the best-performing model using the backshift operator 
+# Model using the "backshift operator"
+# Specifying, ARIMA of (1,1,0)
+# ARIMA Model Equation:
+
+# (1-phi_1B)(1-B)y[t]= e[t]
+# 
+# Where:
+# - y[t] represents the forecast at time t.
+# - B is the backshift operator.
+# - phi1 is the parameter for the autoregressive (AR) model.
+# - e[t] represents the error at time t.
+```
+
+```{r}
+# PART (F)
+# Utilize the model to do forecasts f
+
+plot(forecast(fitted_ARIMA, h=24))
+forecast(fitted_ARIMA, h=24)
+```
+
