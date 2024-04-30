@@ -5,7 +5,7 @@ author: "Duha Alkurdi"
 ---
  
 ```{r}
-# Step-by-step solution for the first question of the mid-term exam
+# Step-by-step solution for the ARIMA model question
 
 # Loading necessary libraries
 library(fpp2)   # This library is loaded so we can work on the specific dataset
